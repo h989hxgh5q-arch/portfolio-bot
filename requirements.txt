@@ -2,6 +2,7 @@ flask==3.0.0
 gspread==6.0.2
 google-auth==2.27.0
 twilio==8.10.0
-google-generativeai==0.7.0
+google-generativeai==0.3.2
 requests==2.31.0
 gunicorn==21.2.0
+protobuf==3.20.3
