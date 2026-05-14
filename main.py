@@ -95,11 +95,7 @@ Mensaje/imagen a interpretar:
 """ + text
 
     try:
-        if image_data:
-            image = Image.open(io.BytesIO(base64.b64decode(image_data)))
-            response = model.generate_content([prompt, image])
-        else:
-            response = model.generate_content(prompt)
+       response = model.generate_content(prompt)
         
         raw = response.text.strip()
         # Limpiar markdown si viene con ```json
