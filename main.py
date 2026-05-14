@@ -92,7 +92,7 @@ def parse_with_gemini(text):
             'contents': [{'parts': [{'text': prompt}]}]
         }, timeout=30)
         data = resp.json()
-        raw = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print('GEMINI FULL:', json.dumps(data), flush=True) raw = data['candidates'][0]['content']['parts'][0]['text'].strip()
         print('GEMINI RAW:', raw, flush=True)
         raw = re.sub(r'```json|```', '', raw).strip()
         return json.loads(raw)
