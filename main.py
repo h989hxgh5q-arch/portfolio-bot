@@ -85,7 +85,7 @@ def append_transaction(ticker, name, qty, price, currency, notes=''):
 
 
 def parse_with_gemini(text):
-    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY
+    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY
     prompt = (
         'Sos un asistente financiero. Extrae los datos de compra de esta transaccion.\n\n'
         'Devuelve SOLO un JSON valido con este formato exacto (sin markdown, sin explicacion):\n'
