@@ -88,8 +88,9 @@ def parse_with_gemini(text):
         print('GEMINI:', raw, flush=True)
         raw = re.sub(r'```json|```', '', raw).strip()
         return json.loads(raw)
-    except Exception as e:
-        return {'error': str(e)}
+  except Exception as e:
+    print('ERROR GEMINI:', str(e), flush=True)
+    return {'error': str(e)}
 
 def send_whatsapp(to, message):
     client = Client(TWILIO_SID, TWILIO_TOKEN)
