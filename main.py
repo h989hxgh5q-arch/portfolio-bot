@@ -6,8 +6,6 @@ import google.generativeai as genai
 import os, json, re
 from datetime import datetime
 import requests
-from PIL import Image
-import io, base64
 
 app = Flask(__name__)
 
