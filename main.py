@@ -9,12 +9,15 @@ import requests
 
 app = Flask(__name__)
 
-TWILIO_SID   = os.environ['TWILIO_SID']
-TWILIO_TOKEN = os.environ['TWILIO_TOKEN']
-TWILIO_FROM  = os.environ['TWILIO_FROM']
-GEMINI_KEY   = os.environ['GEMINI_KEY']
-SHEET_ID     = os.environ['SHEET_ID']
-SHEET_CREDS  = os.environ['SHEET_CREDS']
+TWILIO_SID   = os.environ.get('TWILIO_SID', '')
+TWILIO_TOKEN = os.environ.get('TWILIO_TOKEN', '')
+TWILIO_FROM  = os.environ.get('TWILIO_FROM', '')
+GEMINI_KEY   = os.environ.get('GEMINI_KEY', '')
+SHEET_ID     = os.environ.get('SHEET_ID', '')
+SHEET_CREDS  = os.environ.get('SHEET_CREDS', '')
+
+if GEMINI_KEY:
+    genai.configure(api_key=GEMINI_KEY)
 
 genai.configure(api_key=GEMINI_KEY)
 
