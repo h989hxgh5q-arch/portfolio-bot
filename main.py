@@ -28,10 +28,8 @@ TICKERS_CONOCIDOS = {
 }
 
 MANUAL_TICKERS = {
-    'pension': 'MANUAL_4',
-    'pensión': 'MANUAL_4',
-    'nordnet': 'MANUAL_1',
-    'revolut': 'MANUAL_2',
+    'pension': 'MANUAL_4', 'pensión': 'MANUAL_4',
+    'nordnet': 'MANUAL_1', 'revolut': 'MANUAL_2',
     'nordea': 'MANUAL_3',
 }
 
@@ -48,31 +46,116 @@ NOMBRES = {
     'UNI1-USD': 'Uniswap', 'YFI-USD': 'yearn.finance',
     'ARB11841-USD': 'Arbitrum', 'YPF': 'YPF S.A.',
     'GGAL.BA': 'Grupo Financiero Galicia', 'MELI.BA': 'MercadoLibre',
-    'MANUAL_1': 'Nordnet One Forsigtig',
-    'MANUAL_2': 'Revolut Flexible Funds',
-    'MANUAL_3': 'Nordea Savings account',
-    'MANUAL_4': 'Pension',
+    'MANUAL_1': 'Nordnet One Forsigtig', 'MANUAL_2': 'Revolut Flexible Funds',
+    'MANUAL_3': 'Nordea Savings account', 'MANUAL_4': 'Pension',
 }
 
+# Guess type and currency from ticker
+def guess_type(ticker):
+    t = ticker.upper()
+    if t in ['BTC-USD','ETH-USD','AAVE-USD','UNI1-USD','YFI-USD','ARB11841-USD']: return 'Crypto'
+    if t.endswith('.BA'): return 'Stock'
+    if t in ['YPF']: return 'Stock'
+    if t.startswith('MANUAL_'): return 'Manual'
+    return 'ETF'
 
-def get_sheet():
+def guess_currency(ticker):
+    t = ticker.upper()
+    if t.endswith('-USD') or t in ['YPF']: return 'USD'
+    if t.endswith('.BA'): return 'ARS'
+    if t.startswith('MANUAL_'): return 'DKK'
+    return 'DKK'
+
+def guess_account(ticker):
+    t = ticker.upper()
+    if t in ['BTC-USD','ETH-USD','AAVE-USD','UNI1-USD','YFI-USD','ARB11841-USD']: return 'Crypto wallet'
+    if t.endswith('.BA') or t == 'YPF': return 'Arg based'
+    if t.startswith('MANUAL_'): return 'Manual'
+    return 'Nordnet regular'
+
+
+def get_spreadsheet():
     creds_dict = json.loads(SHEET_CREDS)
     creds = Credentials.from_service_account_info(creds_dict, scopes=[
         'https://spreadsheets.google.com/feeds',
         'https://www.googleapis.com/auth/drive'
     ])
     gc = gspread.authorize(creds)
-    sh = gc.open_by_key(SHEET_ID)
-    return sh.worksheet('Transacciones')
+    return gc.open_by_key(SHEET_ID)
+
+
+def get_sheet(name):
+    return get_spreadsheet().worksheet(name)
+
+
+def ticker_exists_in_portfolio(ticker):
+    ws = get_sheet('Portfolio')
+    col_a = ws.col_values(1)
+    return ticker.upper() in [v.upper() for v in col_a]
+
+
+def add_ticker_to_portfolio(ticker, name):
+    ws = get_sheet('Portfolio')
+    col_a = ws.col_values(1)
+
+    # Find TOTAL row
+    total_row = None
+    for i, val in enumerate(col_a):
+        if val == 'TOTAL':
+            total_row = i + 1
+            break
+    if not total_row:
+        return False
+
+    typ = guess_type(ticker)
+    cur = guess_currency(ticker)
+    acc = guess_account(ticker)
+    r = total_row  # insert before TOTAL
+
+    ws.insert_row([''] * 14, r)
+
+    # Build formulas for the new row
+    sym_display = '—' if ticker.startswith('MANUAL_') else ticker
+    is_manual = ticker.startswith('MANUAL_')
+
+    if cur == 'DKK':
+        pdkk_f = '=F' + str(r)
+    elif cur == 'EUR':
+        pdkk_f = '=F' + str(r) + '*FX!$B$2'
+    elif cur == 'USD':
+        pdkk_f = '=F' + str(r) + '*FX!$B$3'
+    elif cur == 'ARS':
+        pdkk_f = '=F' + str(r) + '*FX!$B$4'
+    else:
+        pdkk_f = '=F' + str(r)
+
+    n = len(col_a)  # approx last data row
+    qty_f = '=IFERROR(SUMIF(Transacciones!$B:$B,"' + ticker + '",Transacciones!$D:$D),"")' if not is_manual else ''
+    cost_f = '=IFERROR(SUMIF(Transacciones!$B:$B,"' + ticker + '",Transacciones!$G:$G),"")' if not is_manual else ''
+
+    ws.update('A' + str(r), [[
+        sym_display, name, acc, typ,
+        qty_f,
+        '',         # price — filled by script
+        cur,
+        pdkk_f,
+        '=IFERROR(H' + str(r) + '*E' + str(r) + ',"")',
+        cost_f,
+        '=IFERROR(I' + str(r) + '-J' + str(r) + ',"")',
+        '=IFERROR((I' + str(r) + '-J' + str(r) + ')/J' + str(r) + ',"")',
+        '=IFERROR(I' + str(r) + '/SUM($I$3:$I$100),"")',
+        'Auto' if not is_manual else 'Manual',
+    ]], value_input_option='USER_ENTERED')
+
+    return True
 
 
 def append_transaction(date, ticker, name, qty, price, currency, commission_dkk, notes):
-    ws = get_sheet()
+    ws = get_sheet('Transacciones')
     fx = {'EUR': 7.46, 'USD': 6.89, 'DKK': 1.0, 'ARS': 0.0046}
     rate = fx.get(currency.upper(), 1.0)
     cost_dkk = round(qty * price * rate, 0)
-    # Columns: Fecha, Ticker, Nombre, Cantidad, Precio pagado, Moneda, Costo DKK, Comision DKK, Notas
-    row = [date, ticker.upper(), name, qty, price, currency.upper(), cost_dkk, commission_dkk, notes]
+    row = [date, ticker.upper(), name, qty, price, currency.upper(), cost_dkk, float(commission_dkk), notes]
     ws.append_row(row, value_input_option='USER_ENTERED')
     return cost_dkk
 
@@ -85,33 +168,25 @@ def parse_with_groq(text):
         'Devuelve SOLO un JSON valido (sin markdown, sin explicacion):\n'
         '{"ticker": "SXR8.DE", "qty": 10, "price": 44.50, "currency": "EUR", "date": "2026-05-14", "commission_dkk": 0, "notes": ""}\n\n'
         'Reglas:\n'
-        '- ticker: simbolo exacto, nombre del activo, o pension/nordnet/revolut/nordea para activos manuales\n'
+        '- ticker: simbolo exacto, nombre del activo, o pension/nordnet/revolut/nordea para manuales\n'
         '- qty: cantidad de unidades. Para pension/nordnet/revolut/nordea, qty es el valor total en DKK\n'
         '- price: precio por unidad. Para pension/nordnet/revolut/nordea, price es 1\n'
         '- currency: EUR, USD, DKK o ARS\n'
-        '- date: fecha en formato YYYY-MM-DD. Si no se menciona, usar ' + today + '\n'
-        '- commission_dkk: comision en DKK. Si no se menciona, usar 0\n'
-        '- notes: cualquier nota adicional\n\n'
-        'Si no podes extraer ticker/qty/price, devuelve {"error": "faltan datos"}\n'
-        'Si no es una transaccion, devuelve {"error": "no es una transaccion"}\n\n'
+        '- date: fecha YYYY-MM-DD. Si no se menciona usar ' + today + '\n'
+        '- commission_dkk: comision en DKK, 0 si no se menciona\n'
+        '- notes: nota adicional o vacio\n\n'
+        'Si faltan ticker/qty/price devuelve {"error": "faltan datos"}\n'
+        'Si no es transaccion devuelve {"error": "no es una transaccion"}\n\n'
         'Mensaje:\n' + text
     )
     try:
         resp = requests.post(url,
-            headers={
-                'Authorization': 'Bearer ' + GROQ_KEY,
-                'Content-Type': 'application/json'
-            },
-            json={
-                'model': 'llama-3.3-70b-versatile',
-                'messages': [{'role': 'user', 'content': prompt}],
-                'temperature': 0.1
-            },
+            headers={'Authorization': 'Bearer ' + GROQ_KEY, 'Content-Type': 'application/json'},
+            json={'model': 'llama-3.3-70b-versatile', 'messages': [{'role': 'user', 'content': prompt}], 'temperature': 0.1},
             timeout=30
         )
         data = resp.json()
         raw = data['choices'][0]['message']['content'].strip()
-        print('GROQ RAW:', raw, flush=True)
         raw = re.sub(r'```json|```', '', raw).strip()
         return json.loads(raw)
     except Exception as e:
@@ -136,8 +211,9 @@ def webhook():
             'SXR8.DE 5 680 EUR\n'
             'compre 0.01 bitcoin a 95000 USD\n'
             'SXR8.DE 5 680 EUR fecha 2026-05-10 comision 45 DKK\n'
-            'pension 50000 DKK\n'
-            'nordea 25000 DKK'
+            'pension 52000 DKK\n'
+            'nordea 25000 DKK\n'
+            'NOVO-B.CO 10 850 DKK'
         )
         return 'OK', 200
 
@@ -146,8 +222,7 @@ def webhook():
     if 'error' in result:
         send_whatsapp(from_number,
             'No pude interpretar el mensaje.\n'
-            'Ejemplo: SXR8.DE 5 680 EUR\n'
-            'Manda "ayuda" para ver todos los formatos.'
+            'Manda "ayuda" para ver los formatos.'
         )
         return 'OK', 200
 
@@ -174,6 +249,12 @@ def webhook():
 
     name = NOMBRES.get(ticker.upper(), ticker.upper())
 
+    # Agregar al Portfolio si es ticker nuevo
+    new_in_portfolio = False
+    if not ticker.startswith('MANUAL_') and not ticker_exists_in_portfolio(ticker):
+        added = add_ticker_to_portfolio(ticker, name)
+        new_in_portfolio = added
+
     try:
         cost_dkk = append_transaction(date, ticker, name, float(qty), float(price),
                                        currency, float(commission_dkk), notes)
@@ -186,7 +267,9 @@ def webhook():
             + 'Costo: ' + str(int(cost_dkk)) + ' DKK'
         )
         if float(commission_dkk) > 0:
-            msg += '\nComision: ' + str(int(commission_dkk)) + ' DKK'
+            msg += '\nComision: ' + str(int(float(commission_dkk))) + ' DKK'
+        if new_in_portfolio:
+            msg += '\nNuevo activo agregado al Portfolio'
         send_whatsapp(from_number, msg)
     except Exception as e:
         send_whatsapp(from_number, 'Error al guardar: ' + str(e))
