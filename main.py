@@ -7,25 +7,38 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-TWILIO_SID   = os.environ.get('TWILIO_SID', '')
+TWILIO_SID = os.environ.get('TWILIO_SID', '')
 TWILIO_TOKEN = os.environ.get('TWILIO_TOKEN', '')
-TWILIO_FROM  = os.environ.get('TWILIO_FROM', '')
-GEMINI_KEY   = os.environ.get('GEMINI_KEY', '')
-SHEET_ID     = os.environ.get('SHEET_ID', '')
-SHEET_CREDS  = os.environ.get('SHEET_CREDS', '')
+TWILIO_FROM = os.environ.get('TWILIO_FROM', '')
+GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
+SHEET_ID = os.environ.get('SHEET_ID', '')
+SHEET_CREDS = os.environ.get('SHEET_CREDS', '')
 
 TICKERS_CONOCIDOS = {
-    'sp500': 'SXR8.DE', 's&p500': 'SXR8.DE', 's&p 500': 'SXR8.DE',
-    'world': 'EUNL.DE', 'msci world': 'EUNL.DE',
-    'emerging': 'IS3N.DE', 'em': 'IS3N.DE', 'emergentes': 'IS3N.DE',
-    'bitcoin': 'BTC-USD', 'btc': 'BTC-USD',
-    'ethereum': 'ETH-USD', 'eth': 'ETH-USD',
+    'sp500': 'SXR8.DE',
+    's&p500': 'SXR8.DE',
+    's&p 500': 'SXR8.DE',
+    'world': 'EUNL.DE',
+    'msci world': 'EUNL.DE',
+    'emerging': 'IS3N.DE',
+    'em': 'IS3N.DE',
+    'emergentes': 'IS3N.DE',
+    'bitcoin': 'BTC-USD',
+    'btc': 'BTC-USD',
+    'ethereum': 'ETH-USD',
+    'eth': 'ETH-USD',
     'aave': 'AAVE-USD',
-    'uniswap': 'UNI1-USD', 'uni': 'UNI1-USD',
-    'yearn': 'YFI-USD', 'yfi': 'YFI-USD',
-    'arbitrum': 'ARB11841-USD', 'arb': 'ARB11841-USD',
-    'ypf': 'YPF', 'galicia': 'GGAL.BA', 'ggal': 'GGAL.BA',
-    'mercadolibre': 'MELI.BA', 'meli': 'MELI.BA',
+    'uniswap': 'UNI1-USD',
+    'uni': 'UNI1-USD',
+    'yearn': 'YFI-USD',
+    'yfi': 'YFI-USD',
+    'arbitrum': 'ARB11841-USD',
+    'arb': 'ARB11841-USD',
+    'ypf': 'YPF',
+    'galicia': 'GGAL.BA',
+    'ggal': 'GGAL.BA',
+    'mercadolibre': 'MELI.BA',
+    'meli': 'MELI.BA',
 }
 
 NOMBRES = {
@@ -92,7 +105,8 @@ def parse_with_gemini(text):
             'contents': [{'parts': [{'text': prompt}]}]
         }, timeout=30)
         data = resp.json()
-        print('GEMINI FULL:', json.dumps(data), flush=True) raw = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print('GEMINI FULL RESPONSE:', json.dumps(data)[:500], flush=True)
+        raw = data['candidates'][0]['content']['parts'][0]['text'].strip()
         print('GEMINI RAW:', raw, flush=True)
         raw = re.sub(r'```json|```', '', raw).strip()
         return json.loads(raw)
