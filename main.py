@@ -10,7 +10,7 @@ app = Flask(__name__)
 TWILIO_SID = os.environ.get('TWILIO_SID', '')
 TWILIO_TOKEN = os.environ.get('TWILIO_TOKEN', '')
 TWILIO_FROM = os.environ.get('TWILIO_FROM', '')
-GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
+GROQ_KEY = os.environ.get('GROQ_KEY', '')
 SHEET_ID = os.environ.get('SHEET_ID', '')
 SHEET_CREDS = os.environ.get('SHEET_CREDS', '')
 
@@ -84,8 +84,8 @@ def append_transaction(ticker, name, qty, price, currency, notes=''):
     return cost_dkk
 
 
-def parse_with_gemini(text):
-    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY
+def parse_with_groq(text):
+    url = 'https://api.groq.com/openai/v1/chat/completions'
     prompt = (
         'Sos un asistente financiero. Extrae los datos de compra de esta transaccion.\n\n'
         'Devuelve SOLO un JSON valido con este formato exacto (sin markdown, sin explicacion):\n'
@@ -101,17 +101,26 @@ def parse_with_gemini(text):
         'Mensaje:\n' + text
     )
     try:
-        resp = requests.post(url, json={
-            'contents': [{'parts': [{'text': prompt}]}]
-        }, timeout=30)
+        resp = requests.post(url,
+            headers={
+                'Authorization': 'Bearer ' + GROQ_KEY,
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'llama3-8b-8192',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'temperature': 0.1
+            },
+            timeout=30
+        )
         data = resp.json()
-        print('GEMINI FULL RESPONSE:', json.dumps(data)[:500], flush=True)
-        raw = data['candidates'][0]['content']['parts'][0]['text'].strip()
-        print('GEMINI RAW:', raw, flush=True)
+        print('GROQ RESPONSE:', json.dumps(data)[:300], flush=True)
+        raw = data['choices'][0]['message']['content'].strip()
+        print('GROQ RAW:', raw, flush=True)
         raw = re.sub(r'```json|```', '', raw).strip()
         return json.loads(raw)
     except Exception as e:
-        print('GEMINI ERROR:', str(e), flush=True)
+        print('GROQ ERROR:', str(e), flush=True)
         return {'error': str(e)}
 
 
@@ -134,7 +143,7 @@ def webhook():
         )
         return 'OK', 200
 
-    result = parse_with_gemini(body)
+    result = parse_with_groq(body)
 
     if 'error' in result:
         send_whatsapp(from_number,
